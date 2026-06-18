@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LENSTORE Dashboard</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f9;margin:0;padding:20px}
+.container{max-width:1400px;margin:auto}
+.header,.table-wrap{background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:15px 0}
+.card{background:#f8fafc;padding:15px;border-radius:10px}
+.toolbar{display:flex;gap:10px;margin:15px 0}
+input,button{padding:10px;border-radius:8px;border:1px solid #ccc}
+button{cursor:pointer}
+.add{background:#16a34a;color:white;border:none}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center}
+.modal-box{background:#fff;padding:20px;border-radius:12px;width:400px}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>LENSTORE Dashboard</h1>
+<div class="stats">
+<div class="card">Customer Aktif<br><b id="active">0</b></div>
+<div class="card">Total Customer<br><b id="total">0</b></div>
+</div>
+</div>
+
+<div class="toolbar">
+<input id="search" placeholder="Cari customer..." style="flex:1">
+<button class="add" onclick="openModal()">+ Tambah Customer</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Nama</th><th>WA</th><th>Tagar</th><th>Paket</th><th>Progress</th><th>Aksi</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-box">
+<h3>Tambah Customer</h3>
+<input id="nama" placeholder="Nama" style="width:100%;margin:5px 0">
+<input id="wa" placeholder="628xxxx" style="width:100%;margin:5px 0">
+<input id="tagar" placeholder="#tagar" style="width:100%;margin:5px 0">
+<input id="hari" type="number" placeholder="Jumlah Hari" style="width:100%;margin:5px 0">
+<button class="add" onclick="saveCustomer()">Simpan</button>
+<button onclick="closeModal()">Batal</button>
+</div>
+</div>
+
+<script>
+let customers=JSON.parse(localStorage.getItem("customers")||"[]");
+
+function saveLS(){
+ localStorage.setItem("customers",JSON.stringify(customers));
+}
+
+function openModal(){document.getElementById("modal").style.display="flex";}
+function closeModal(){document.getElementById("modal").style.display="none";}
+
+function genId(){
+ return "CUST-"+String(customers.length+1).padStart(3,"0");
+}
+
+function saveCustomer(){
+ const nama=document.getElementById("nama").value.trim();
+ const wa=document.getElementById("wa").value.trim();
+ const tagar=document.getElementById("tagar").value.trim();
+ const hari=parseInt(document.getElementById("hari").value);
+
+ if(!nama||!wa||!tagar||!hari){alert("Lengkapi data");return;}
+
+ customers.push({
+   id:genId(),nama,wa,tagar,paket:hari,progress:0
+ });
+
+ saveLS();
+ render();
+ closeModal();
+}
+
+function del(id){
+ customers=customers.filter(x=>x.id!==id);
+ saveLS();
+ render();
+}
+
+function copyTagar(t){
+ navigator.clipboard.writeText(t);
+ alert("Tagar disalin");
+}
+
+function render(){
+ const key=document.getElementById("search").value.toLowerCase();
+ const tb=document.getElementById("tbody");
+ tb.innerHTML="";
+
+ customers.filter(c=>
+   c.nama.toLowerCase().includes(key)||
+   c.wa.includes(key)||
+   c.tagar.toLowerCase().includes(key)
+ ).forEach(c=>{
+   tb.innerHTML+=`
+   <tr>
+   <td>${c.id}</td>
+   <td>${c.nama}</td>
+   <td><a href="https://wa.me/${c.wa}" target="_blank">Chat</a></td>
+   <td><button onclick="copyTagar('${"${c.tagar}"}'.replace('${"${c.tagar}"}', c.tagar))">Copy</button></td>
+   <td>${c.paket} Hari</td>
+   <td>${c.progress}/${c.paket}</td>
+   <td><button onclick="del('${c.id}')">Hapus</button></td>
+   </tr>`;
+ });
+
+ document.getElementById("total").innerText=customers.length;
+ document.getElementById("active").innerText=customers.length;
+}
+
+document.getElementById("search").addEventListener("input",render);
+render();
+</script>
+</body>
+</html>
