@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>LENSTORE Dashboard</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f9;margin:0;padding:20px}
+.container{max-width:1500px;margin:auto}
+.header,.tablebox{background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:15px}
+.card{background:#f8fafc;padding:15px;border-radius:10px}
+.toolbar{display:flex;gap:10px;margin:15px 0}
+input,button{padding:10px;border-radius:8px;border:1px solid #ccc}
+button{cursor:pointer}
+.add{background:#16a34a;color:#fff;border:none}
+.send{background:#2563eb;color:#fff;border:none}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+.status-active{color:green;font-weight:bold}
+.status-warning{color:orange;font-weight:bold}
+.status-finished{color:gray;font-weight:bold}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center}
+.modal-box{background:white;padding:20px;border-radius:12px;width:400px}
+.modal-box input{width:100%;margin:5px 0}
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="header">
+<h1>LENSTORE Dashboard</h1>
+<div class="stats">
+<div class="card">Customer Aktif<br><b id="activeCount">0</b></div>
+<div class="card">Sudah Dikirim Hari Ini<br><b id="sentCount">0</b></div>
+<div class="card">Belum Dikirim Hari Ini<br><b id="notSentCount">0</b></div>
+<div class="card">Reset WIB<br><b id="countdown">--:--:--</b></div>
+</div>
+</div>
+
+<div class="toolbar">
+<input id="search" placeholder="Cari customer..." style="flex:1">
+<button class="add" onclick="openModal()">+ Tambah Customer</button>
+</div>
+
+<div class="tablebox">
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Nama</th>
+<th>WA</th>
+<th>Tagar</th>
+<th>Paket</th>
+<th>Progress</th>
+<th>Sisa</th>
+<th>Status</th>
+<th>Hari Ini</th>
+<th>Aksi</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</div>
+
+<div class="modal" id="modal">
+<div class="modal-box">
+<h3>Tambah Customer</h3>
+<input id="nama" placeholder="Nama Customer">
+<input id="wa" placeholder="628xxxxxxxx">
+<input id="tagar" placeholder="#tagar">
+<input id="hari" type="number" placeholder="Jumlah Hari">
+<button class="add" onclick="saveCustomer()">Simpan</button>
+<button onclick="closeModal()">Batal</button>
+</div>
+</div>
+
+<script>
+let customers=JSON.parse(localStorage.getItem("customers")||"[]");
+
+function saveLS(){
+ localStorage.setItem("customers",JSON.stringify(customers));
+}
+
+function getToday(){
+ return new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jakarta"});
+}
+
+function genId(){
+ let n=customers.length+1;
+ return "CUST-"+String(n).padStart(3,"0");
+}
+
+function openModal(){
+ document.getElementById("modal").style.display="flex";
+}
+
+function closeModal(){
+ document.getElementById("modal").style.display="none";
+}
+
+function saveCustomer(){
+ const nama=document.getElementById("nama").value.trim();
+ const wa=document.getElementById("wa").value.trim();
+ const tagar=document.getElementById("tagar").value.trim();
+ const hari=parseInt(document.getElementById("hari").value);
+
+ if(!nama||!wa||!tagar||!hari){
+   alert("Lengkapi semua data");
+   return;
+ }
+
+ customers.push({
+   id:genId(),
+   nama:nama,
+   wa:wa,
+   tagar:tagar,
+   paket:hari,
+   progress:0,
+   lastSent:""
+ });
+
+ saveLS();
+ render();
+ closeModal();
+
+ document.getElementById("nama").value="";
+ document.getElementById("wa").value="";
+ document.getElementById("tagar").value="";
+ document.getElementById("hari").value="";
+}
+
+function sendToday(id){
+ const c=customers.find(x=>x.id===id);
+
+ if(c.lastSent===getToday()){
+   alert("Sudah dikirim hari ini");
+   return;
+ }
+
+ if(c.progress>=c.paket){
+   alert("Paket selesai");
+   return;
+ }
+
+ c.progress++;
+ c.lastSent=getToday();
+
+ saveLS();
+ render();
+}
+
+function deleteCustomer(id){
+ if(!confirm("Hapus customer?")) return;
+ customers=customers.filter(x=>x.id!==id);
+ saveLS();
+ render();
+}
+
+function copyTagar(text){
+ navigator.clipboard.writeText(text);
+ alert("Tagar disalin");
+}
+
+function status(c){
+ let sisa=c.paket-c.progress;
+
+ if(sisa<=0) return ["Selesai","status-finished"];
+ if(sisa<=3) return ["Hampir Habis","status-warning"];
+ return ["Aktif","status-active"];
+}
+
+function render(){
+
+ const key=document.getElementById("search").value.toLowerCase();
+ const tbody=document.getElementById("tbody");
+
+ tbody.innerHTML="";
+
+ let aktif=0;
+ let sent=0;
+
+ customers.filter(c=>
+   c.nama.toLowerCase().includes(key)||
+   c.wa.includes(key)||
+   c.tagar.toLowerCase().includes(key)
+ ).forEach(c=>{
+
+   let sisa=c.paket-c.progress;
+   let st=status(c);
+
+   if(sisa>0) aktif++;
+   if(c.lastSent===getToday()) sent++;
+
+   tbody.innerHTML+=`
+   <tr>
+   <td>${c.id}</td>
+   <td>${c.nama}</td>
+   <td><a href="https://wa.me/${c.wa}" target="_blank">Chat</a></td>
+   <td><button onclick="copyTagar('${c.tagar.replace(/'/g,"")}')">Copy</button></td>
+   <td>${c.paket} Hari</td>
+   <td>${c.progress}/${c.paket}</td>
+   <td>${sisa}</td>
+   <td class="${st[1]}">${st[0]}</td>
+   <td>
+   ${c.lastSent===getToday()
+      ? '✓ Sudah Dikirim'
+      : '<button class="send" onclick="sendToday(\''+c.id+'\')">Kirim Hari Ini</button>'}
+   </td>
+   <td>
+   <button onclick="deleteCustomer('${c.id}')">Hapus</button>
+   </td>
+   </tr>`;
+ });
+
+ document.getElementById("activeCount").innerText=aktif;
+ document.getElementById("sentCount").innerText=sent;
+ document.getElementById("notSentCount").innerText=Math.max(aktif-sent,0);
+}
+
+function updateCountdown(){
+ const now=new Date();
+ const jakarta=new Date(now.toLocaleString("en-US",{timeZone:"Asia/Jakarta"}));
+ const next=new Date(jakarta);
+ next.setHours(24,0,0,0);
+
+ const diff=next-jakarta;
+
+ const h=Math.floor(diff/3600000);
+ const m=Math.floor((diff%3600000)/60000);
+ const s=Math.floor((diff%60000)/1000);
+
+ document.getElementById("countdown").innerText=
+ String(h).padStart(2,"0")+":"+
+ String(m).padStart(2,"0")+":"+
+ String(s).padStart(2,"0");
+
+ render();
+}
+
+document.getElementById("search").addEventListener("input",render);
+
+setInterval(updateCountdown,1000);
+
+render();
+updateCountdown();
+</script>
+
+</body>
+</html>
