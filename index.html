@@ -362,10 +362,364 @@ Simpan
 </div>
 
 <script>
-/*
-APP.JS AKAN DITAMBAHKAN
-PADA LANGKAH BERIKUTNYA
-*/
+<script>
+
+let customers =
+JSON.parse(localStorage.getItem("customers")) || [];
+
+let editingId = null;
+
+const customerTable =
+document.getElementById("customerTable");
+
+const modal =
+document.getElementById("customerModal");
+
+const openModalBtn =
+document.getElementById("openModal");
+
+const closeModalBtn =
+document.getElementById("closeModal");
+
+const saveBtn =
+document.getElementById("saveCustomer");
+
+const searchInput =
+document.getElementById("searchInput");
+
+openModalBtn.onclick = () => {
+    modal.style.display = "flex";
+};
+
+closeModalBtn.onclick = () => {
+    modal.style.display = "none";
+    clearForm();
+};
+
+window.onclick = (e) => {
+    if (e.target === modal) {
+        modal.style.display = "none";
+        clearForm();
+    }
+};
+
+function clearForm() {
+    editingId = null;
+
+    document.getElementById("customerName").value = "";
+    document.getElementById("customerWa").value = "";
+    document.getElementById("customerTagar").value = "";
+    document.getElementById("customerDays").value = "";
+}
+
+function saveData() {
+    localStorage.setItem(
+        "customers",
+        JSON.stringify(customers)
+    );
+}
+
+function generateId() {
+
+    if (customers.length === 0) {
+        return "CUST-001";
+    }
+
+    let last =
+    customers[customers.length - 1].id;
+
+    let number =
+    parseInt(last.replace("CUST-",""));
+
+    number++;
+
+    return `CUST-${String(number).padStart(3,"0")}`;
+}
+
+saveBtn.onclick = () => {
+
+    const nama =
+    document.getElementById("customerName")
+    .value.trim();
+
+    const wa =
+    document.getElementById("customerWa")
+    .value.trim();
+
+    const tagar =
+    document.getElementById("customerTagar")
+    .value.trim();
+
+    const hari =
+    parseInt(
+        document.getElementById("customerDays")
+        .value
+    );
+
+    if (
+        !nama ||
+        !wa ||
+        !tagar ||
+        !hari
+    ) {
+        alert("Lengkapi semua data");
+        return;
+    }
+
+    if (editingId) {
+
+        const index =
+        customers.findIndex(
+            c => c.id === editingId
+        );
+
+        customers[index].nama = nama;
+        customers[index].wa = wa;
+        customers[index].tagar = tagar;
+        customers[index].paketHari = hari;
+
+    } else {
+
+        customers.push({
+            id: generateId(),
+            nama,
+            wa,
+            tagar,
+            paketHari: hari,
+            progress: 0,
+            createdAt:
+            new Date().toLocaleDateString(
+                "id-ID"
+            )
+        });
+    }
+
+    saveData();
+    renderTable();
+
+    modal.style.display = "none";
+    clearForm();
+};
+
+function getStatus(customer){
+
+    let sisa =
+    customer.paketHari -
+    customer.progress;
+
+    if (sisa <= 0)
+        return "Selesai";
+
+    if (sisa <= 3)
+        return "Hampir Habis";
+
+    return "Aktif";
+}
+
+function renderTable(){
+
+    let keyword =
+    searchInput.value.toLowerCase();
+
+    customerTable.innerHTML = "";
+
+    let filtered =
+    customers.filter(c =>
+
+        c.nama.toLowerCase()
+        .includes(keyword)
+
+        ||
+
+        c.wa.toLowerCase()
+        .includes(keyword)
+
+        ||
+
+        c.tagar.toLowerCase()
+        .includes(keyword)
+
+    );
+
+    filtered.forEach(customer => {
+
+        let sisa =
+        customer.paketHari -
+        customer.progress;
+
+        let status =
+        getStatus(customer);
+
+        let statusClass =
+        "status-active";
+
+        if(status==="Hampir Habis"){
+            statusClass =
+            "status-warning";
+        }
+
+        if(status==="Selesai"){
+            statusClass =
+            "status-finished";
+        }
+
+        customerTable.innerHTML += `
+        <tr>
+
+            <td>${customer.id}</td>
+
+            <td>${customer.nama}</td>
+
+            <td>
+                <button
+                class="action-btn wa-btn"
+                onclick="openWA('${customer.wa}')">
+                Chat
+                </button>
+            </td>
+
+            <td>
+                <button
+                class="action-btn copy-btn"
+                onclick="copyTagar(\`${customer.tagar}\`)">
+                Copy
+                </button>
+            </td>
+
+            <td>
+                ${customer.paketHari} Hari
+            </td>
+
+            <td>
+                ${customer.progress}/${customer.paketHari}
+            </td>
+
+            <td>
+                ${sisa}
+            </td>
+
+            <td class="${statusClass}">
+                ${status}
+            </td>
+
+            <td>
+                -
+            </td>
+
+            <td>
+
+                <button
+                class="action-btn edit-btn"
+                onclick="editCustomer('${customer.id}')">
+                Edit
+                </button>
+
+                <button
+                class="action-btn delete-btn"
+                onclick="deleteCustomer('${customer.id}')">
+                Hapus
+                </button>
+
+            </td>
+
+        </tr>
+        `;
+    });
+
+    updateStats();
+}
+
+function updateStats(){
+
+    let aktif =
+    customers.filter(c =>
+    c.paketHari - c.progress > 0
+    ).length;
+
+    document.getElementById(
+    "activeCount"
+    ).innerText = aktif;
+
+    document.getElementById(
+    "sentToday"
+    ).innerText = "-";
+
+    document.getElementById(
+    "notSentToday"
+    ).innerText = "-";
+}
+
+function editCustomer(id){
+
+    let customer =
+    customers.find(
+        c => c.id === id
+    );
+
+    editingId = id;
+
+    document.getElementById(
+    "customerName"
+    ).value = customer.nama;
+
+    document.getElementById(
+    "customerWa"
+    ).value = customer.wa;
+
+    document.getElementById(
+    "customerTagar"
+    ).value = customer.tagar;
+
+    document.getElementById(
+    "customerDays"
+    ).value = customer.paketHari;
+
+    modal.style.display = "flex";
+}
+
+function deleteCustomer(id){
+
+    if(
+        !confirm(
+            "Hapus customer ini?"
+        )
+    ) return;
+
+    customers =
+    customers.filter(
+        c => c.id !== id
+    );
+
+    saveData();
+    renderTable();
+}
+
+function openWA(wa){
+
+    window.open(
+        `https://wa.me/${wa}`,
+        "_blank"
+    );
+}
+
+function copyTagar(tagar){
+
+    navigator.clipboard
+    .writeText(tagar);
+
+    alert(
+        "Tagar berhasil disalin"
+    );
+}
+
+searchInput.addEventListener(
+"input",
+renderTable
+);
+
+renderTable();
+
+</script>
 </script>
 
 </body>
